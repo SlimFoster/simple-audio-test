@@ -17,40 +17,45 @@ export class BufferLoader {
     this.loadCount = 0;
   }
 
-  private loadBuffer(url: string, index: number) {
-    // Load buffer asynchronously
-    var request = new XMLHttpRequest();
-    request.open("GET", url, true);
-    request.responseType = "arraybuffer";
-
-    request.onload = () => {
-      // Asynchronously decode the audio file data in request.response
-      this.context.decodeAudioData(
-        request.response,
-        (buffer) => {
-          if (!buffer) {
-            alert("error decoding file data: " + url);
-            return;
-          }
-          this.bufferList[index] = buffer;
-          if (++this.loadCount == this.urlList.length)
-            this.onload(this.bufferList);
-        },
-        (error) => {
-          console.error("decodeAudioData error", error);
-        }
-      );
-    };
-
-    request.onerror = () => {
-      alert("BufferLoader: XHR error");
-    };
-
-    request.send();
+  public static load(context: AudioContext, urlList: string[]) {
+    return new Promise<AudioBuffer[]>((resolve, reject) => {
+      new BufferLoader(context, urlList, resolve).doLoad(reject);
+    });
   }
 
-  public load = function () {
-    for (var i = 0; i < this.urlList.length; ++i)
-      this.loadBuffer(this.urlList[i], i);
+  private doLoad (reject: (reason?: any) => void) {
+    for (let i = 0; i < this.urlList.length; i++) {
+      const url = this.urlList[i];
+
+      // Load buffer asynchronously
+      const request = new XMLHttpRequest();
+      request.open("GET", url, true);
+      request.responseType = "arraybuffer";
+
+      request.onload = () => {
+        // Asynchronously decode the audio file data in request.response
+        this.context.decodeAudioData(
+          request.response,
+          (buffer) => {
+            if (!buffer) {
+              alert("error decoding file data: " + url);
+              return;
+            }
+            this.bufferList[i] = buffer;
+            if (++this.loadCount == this.urlList.length)
+              this.onload(this.bufferList);
+          },
+          (error) => {
+            reject("decodeAudioData error: " + error);
+          }
+        );
+      };
+
+      request.onerror = () => {
+        reject("XHR error loading url: " + url);
+      };
+
+      request.send();
+    }
   };
 }
